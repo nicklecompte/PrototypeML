@@ -1,5 +1,6 @@
 ;;; Helpers ;;;
 
+; Slow stupid union of two lists
 (define union
   (lambda (ls1 ls2) (
       cond
@@ -223,32 +224,90 @@
 ; e P ~alpha P' and P' ~alpha P'' => P ~alpha P''
 
 (define are-alpha-equivalent-preterms?
-  (lambda (term1 term2)
-      (cond
-          ; equal preterms are alpha-equivalent
-          [(equal? term1 term2) #t]
-          ; short-circuiting the above so we can
-          ; assume the preterms are not symbols, and hence pairs
-          [(and (symbol? term1) (symbol? term2)) (equal? term1 term2)]
-          [(is-raised-lambda-symbol? (car term1))
-            (let ([x (cdr (car term1))] [p (cdr term1)])
-                (cond
-                    [(is-raised-lambda-symbol? (car term2))
-                      (if (equal? (cdr (car term2)) x)
-                          ; if term2 is a lambda with the same variable,
-                          ; then they are alpha-equivalent iff their expressions are.
-                          (are-alpha-equivalent-preterms? p (cdr term2))
-                          ; If term2 is a lambda expression with a different symbol for the variable,
-                          ; then the cdr of the term must be the substituin of x for y for alpha-equivalence
-                          (equal? (cdr term2) (apply-preterm-substitution p x (cdr (car term2)))))]
-            ))]
-          [else (let ([term1-a (car term1)] [term1-b (cdr term1)] [term2-a (car term2)] [term2-b (cdr term2)])
-                      (cond
-                        [(equal? term1-a term2-a) (are-alpha-equivalent-preterms? term1-b term2-b)]
-                        [(equal? term1-b term2-b) (are-alpha-equivalent-preterms? term1-a term2-a)]
-                        [else #f] ; TODO: check the antisymmetry once.
-      ))]
+    (lambda (interm1 interm2)
+      (letrec ([inner (lambda (term1 term2)
+        (cond
+            ; equal preterms are alpha-equivalent
+            [(equal? term1 term2) #t]
+            ; short-circuiting the above so we can
+            ; assume the preterms are not symbols, and hence pairs
+            [(and (symbol? term1) (symbol? term2)) (equal? term1 term2)]
+            [(symbol? term1) #f]
+            [(symbol? term2) #f]
+            [(is-raised-lambda-symbol? (car term1))
+                (let ([x (cdr (car term1))] [p (cdr term1)])
+                    (cond
+                        [(is-raised-lambda-symbol? (car term2))
+                        (if (equal? (cdr (car term2)) x)
+                            ; if term2 is a lambda with the same variable,
+                            ; then they are alpha-equivalent iff their expressions are.
+                            (inner p (cdr term2))
+                            ; If term2 is a lambda expression with a different symbol for the variable,
+                            ; then the cdr of the term must be the substituin of x for y for alpha-equivalence
+                            (inner (cdr term2) (apply-preterm-substitution p x (cdr (car term2)))))]
+                        [else #f]
+                ))]
+            [else (let ([term1-a (car term1)]
+                        [term1-b (cdr term1)]
+                        [term2-a (car term2)]
+                        [term2-b (cdr term2)])
+                        (and
+                          (are-alpha-equivalent-preterms? term1-a term2-a)
+                          (are-alpha-equivalent-preterms? term1-b term2-b)
+        ))]
+  ))])
+      (or (inner interm1 interm2) (inner interm2 interm1))
   )))
+
+(define test-alpha-equivalent-bundled
+  (and
+; Correct
+  (are-alpha-equivalent-preterms?
+    (cons (cons 'mllambda 'x) (cons (cons 'mllambda 'b) 'x))
+    (cons (cons 'mllambda 'x) (cons (cons 'mllambda 't) 'x)))
+
+  ; Correct
+  (are-alpha-equivalent-preterms?
+    (cons (cons 'mllambda 'a) (cons (cons 'mllambda 'b) 'a))
+    (cons (cons 'mllambda 'x) (cons (cons 'mllambda 'b) 'x)))
+
+  ; now it's correct :)
+  (are-alpha-equivalent-preterms?
+    (cons (cons 'mllambda 'a) (cons (cons 'mllambda 'b) 'a))
+    (cons (cons 'mllambda 'x) (cons (cons 'mllambda 't) 'x)))
+
+  ; works
+  (not (are-alpha-equivalent-preterms?
+    (cons
+      (cons (cons 'mllambda 'a) (cons (cons 'mllambda 'b) 'a))
+      (cons (cons 'mllambda 'x) (cons (cons 'mllambda 't) 'x))
+    )
+    (cons (cons 'mllambda 'x) (cons (cons 'mllambda 't) 'x))
+  ))
+
+  ; works
+  (are-alpha-equivalent-preterms?
+    (cons
+      (cons (cons 'mllambda 'a) (cons (cons 'mllambda 'b) 'a))
+      (cons (cons 'mllambda 'x) (cons (cons 'mllambda 't) 'x))
+    )
+    (cons
+      (cons (cons 'mllambda 'x) (cons (cons 'mllambda 't) 'x))
+      (cons (cons 'mllambda 'a) (cons (cons 'mllambda 'b) 'a))
+    )
+  )
+  ; Works
+  (are-alpha-equivalent-preterms?
+    (cons (cons 'mllambda 'x) 'x)
+    (cons (cons 'mllambda 'y) 'y))
+
+  ; Works
+  (not (are-alpha-equivalent-preterms?
+    (cons (cons 'mllambda 'x) (cons 'x 'x))
+    (cons (cons 'mllambda 'y) (cons 'a 'y))))
+  ))
+
+(are-alpha-equivalent-preterms? (cons (cons (cons 'mllambda 'a) (cons (cons 'mllambda 'b) 'a)) (cons (cons 'mllambda 'x) (cons (cons 'mllambda 't) 'x))) (cons (cons 'mllambda 'x) (cons (cons 'mllambda 't) 'x)))
 
 ; $ = ?????????????????????????? (26 characters)
 ; ? = \lambda abcdefghijklmnopqstuvwxyzr . r (thisisafixedpointcombinator)
@@ -342,22 +401,24 @@
 ;(define-record-type MLRecordTypeElement
 ;  (fields property-name type value) (nongenerative))
 
-(define-record-type BetaReductionResult
-  (fields ))
-
 (define get-one-deeply-recursed-beta-reduction
   (lambda (term) (
       cond
         [(symbol? term)
           term]
         [(symbol? (car term)) ; base case of P \beta P' => Z P \beta Z P'
-          (cons (car term) (get-one-deeply-recursed-beta-reduction (cdr term)))]
-        [(symbol? (cdr term)) ; base case of P \beta P' => P Z  \ beta P' Z
-          (cons (get-one-deeply-recursed-beta-reduction (car term)) (cdr term))]
+          (cons
+            (car term)
+            (get-one-deeply-recursed-beta-reduction (cdr term)))]
         [(is-raised-lambda-symbol? (car term)) ; P \beta P' => lambda x . P \beta lambda x . P'
-          (cons (car term) (get-one-deeply-recursed-beta-reduction (cdr term)))]
+          (cons
+            (car term)
+            (get-one-deeply-recursed-beta-reduction (cdr term)))]
         [(is-raised-lambda-symbol? (car (car term))) ; base case of definition for beta reduction
-          (apply-preterm-substitution (cdr (car term)) (cdr (car (car term))) (cdr term))]
+          (apply-preterm-substitution
+            (cdr (car term))
+            (cdr (car (car term)))
+            (cdr term))]
         [else (cons
                  (get-one-deeply-recursed-beta-reduction (car term))
                  (get-one-deeply-recursed-beta-reduction (cdr term))
@@ -378,12 +439,54 @@
   )
 )
 
-(define are-beta-equal?
-  (lambda (term1 term2) (
-      cond
-        [(equal? term1 term2) #t]
+(define test-beta-reduction-2
+  (let ([reduced
+          (get-one-deeply-recursed-beta-reduction
+            (cons
+              (cons (cons 'mllambda 'z) 'z)
+              (cons (cons 'mllambda 'y) 'y)
+            ))])
+        (are-alpha-equivalent-preterms?
+          reduced
+          (cons (cons 'mllambda 'y) 'y))))
 
-  )))
+(define test-beta-reduction-3
+  (let ([reduced
+          (get-one-deeply-recursed-beta-reduction
+             (cons
+               (cons (cons 'mllambda 'x) (cons 'x 'x))
+               (cons (cons 'mllambda 'x) 'x)
+            ))])
+        (are-alpha-equivalent-preterms?
+          (get-one-deeply-recursed-beta-reduction reduced)
+          (cons (cons 'mllambda 'x) 'x))))
+
+(define get-full-beta-reduction
+  (lambda (term) (
+      letrec ([inner
+        (lambda (thisterm lastterm) (
+            if (equal? lastterm thisterm) thisterm
+               (inner (get-one-deeply-recursed-beta-reduction thisterm) thisterm)
+        ) )])
+      (inner (get-one-deeply-recursed-beta-reduction term) term))
+   ))
+
+(define test-beta-reduction-4
+  (let ([baseterm
+          (cons
+            (cons (cons 'mllambda 'x) (cons 'x 'x))
+            (cons (cons 'mllambda 'x) 'x)
+          )
+        ])
+  (are-alpha-equivalent-preterms? (get-full-beta-reduction baseterm) (cons (cons 'mllambda 'x) 'x))))
+
+(define are-beta-equal?
+  (lambda (term1 term2)
+    (are-alpha-equivalent-preterms?
+      (get-full-beta-reduction term1)
+      (get-full-beta-reduction term2))
+  )
+)
 
 ;;; Informal interpretation ;;;
 
@@ -396,3 +499,235 @@
 ; \lambda, x, etc.
 ; As in the notaiton n |-> n, the name of the abstracted variable
 ; is not significant; this is why we identify \lambda x . x with \lambda y . y, etc.
+
+; beta-reduction formalizes the calculation of values in functions
+; by collapsing and collecting like terms.
+
+; One good preterm is
+(define identity (cons (cons 'mllambda 'x) 'x))
+
+(define test-beta-reduction-5
+  (are-beta-equal? (cons identity 'kitten) 'kitten))
+
+; Another term is
+(define k-star
+  (cons (cons 'mllambda 'y) (cons (cons 'mllambda 'x ) 'x)))
+; which maps any preterm to the identity function.
+
+; There's also
+(define k
+  (cons (cons 'mllambda 'y) (cons (cons 'mllambda 'x) 'y)))
+
+; which denotes the function that maps any argument k to a function g
+; that, for all symbols x,  satisfies g(x) = k
+
+(define test-beta-reduction-7
+  (are-beta-equal? (cons k-star 'kitten) identity))
+
+(define test-beta-reduction-6
+  (are-beta-equal? 'kitten (get-full-beta-reduction (cons (cons k 'kitten) 'doggi÷e))))
+
+
+(define omega-function
+    (cons
+      (cons 'mllambda 'x)
+      (cons 'x 'x)
+    )
+)
+(define omega-combinator (cons omega-function omega-function))
+
+; The omega-combinator is a nontrivial preterm
+; which beta-reduces to itself.
+
+(define test-beta-reduction-9
+  (equal? (get-one-deeply-recursed-beta-reduction omega-combinator) omega-combinator))
+
+;;; The Church-Rosser Theorem
+
+; Since a lambda term M can contain several beta-redexes,
+; there may be several N such that M \beta N.
+; The Church-Rosser theorem states that, if
+; M \Aarrow_beta M1 and
+; M \Aarow_beta M2,
+; then a single lambda term M3 can be found with
+; M1 \Aarrow_beta M3 and M2 \Aarrow_beta M3
+
+; In particular, if M1 and M2 are beta-normal,
+; meaning that they're lambda terms that admit no further
+; beta reductions, then they must be the same lambda term.
+
+; A relation > on Lambda satisifes the diamond property if
+; fo all M1, M2, M3 \in \Lambda,  if M1 > M2 and M1 > M3, then there exists
+; an M4 \in \lambda such that M2 > M4 and M3 > M4
+
+; The transitive closure of a binary relation R, R*, is the least relation satisfying
+; R(A,B) => R*(A,B)
+; R*(A,B) and R*(B,C) => R*(A,C)
+
+; The reflexive closure of R, R=, is the least relation satisfying
+; R(A,B) => R=(A,B)
+; R=(A,A)
+
+; Lemma: Let > be a relation on \Lambda and suppose its transitive closure is \Aarrow_beta.
+; If > satisfies the diamond property, then so does \Aarrow_beta
+
+; Proof: Suppose > satisifes the diamond property. We must show that if >(M1, M2) and >(M2, M3),
+; there exists an M4 in \Lambda such that M2 \Aarrow_beta M4 and M3 \Aarrow_beta M4.
+; Because \Aarrow_beta is the transitive closure, M1 \Aarrow_beta M3.
+; There are two cases:
+; >(M1, M3):
+;  In this case, we have >(M1, M2) and >(M1,M3). Because > satisfies the diamond properity,
+;  there exists M4 such that >(M2,M4) and >(M3, M4). Since > \subset \Aarrow_beta the proposition holds.
+; not >(M1, M3)
+;  M1 \Aarrow_beta M3. Therefore there exists an N such that one of the following hold:
+;  - (>(M1, N) and \Aarrow_beta(N, M3)
+; - (\Aarrow_beta(M1,N) and >(N, M3))
+; - (>(M1, N) and >(N, M3))
+; In the last case the propositon holds by > having the diamond property.
+; In the other cases an inductive reduction can be made to the last case,
+; and the proposition holds.
+
+; Definition: Let \Aarrow_iota be the relation on  \Lambda defined by
+; 1) P \Aarrow_iota P
+; 2) P \Aarrow_iota P' => \lambda x . P \Aarrow_iota \lambda x . P'
+; 3) P \AArrow_iota P' and Q \Aaarow_iota Q'
+;     => P Q \Aarrow_iota P' Q'
+; 4) P \Aarrow_iota P' and Q \Aarrow_iota Q'
+;     => (lambda x. P) Q \Aarrow_iota P'[x := Q']
+
+; Lemma: M \Aarrow_iota M' and N \Aarrow_iota N'
+;        => M[x := N] \Aarrow_iota M'[x:= N']
+; proof:
+; Case M = M':
+; we must show N \Aarrow_iota N' => M[x := N] \Aarrow_iota M[x := N']
+; case M of
+;   x : x[x := N] = N \Aaarrow_iota N' = x[x:=N']
+;   y : y[x:=N] = y \Aarrow_iota y = y[x:=N']
+; (P Q): P[x: = N] Q[x :=N] and it follows by inductiion and 3)
+; (lambda y . P) : (lambda y . P)[x = N] = (lambda y . P[x := N])
+;        \Aaarrow_iota (lambda y . P[x:=N']) if induction hypothesis on P holds
+; This proves for M = M'.
+; Case M != M':
+; Since M \Aaarrow_iota M', we can also induct on the cases using the above lemma.
+
+; Lemma. \Aarrow_iota satisfies the diamond property.
+; Proof:
+; Suppose we have M1 \Aarrow_iota M2 and M1 \Aaarrow_iota M3.
+; Case 1) M1 = M2.
+; TakE M4 = M3. This base case for induction is satisfied.
+; Case 2) M1 = lambda x . P and M2 = lambda x . P' with P \Aaarrow_iota P'.
+; Then M3 must be lambda x . Q for some Q with P \Aarrow_iota Q.
+; If induction hypothesis holds, then this case satisfies diamond property.
+; Case 3) M1 =  P Q and M2 = P' Q' wiith P \Aarrow_iota P' and Q \Aarrow_iota Q'.
+; Assume P is not a lambda expression (this is case 4).
+; Then M3 must also be of the form P'' Q''.
+; Hypothesis follows by induction seperately
+; on P \Aaarow_iota P' and P \Aarrow P''
+; then Q \Aarrow_iota Q' and Q \Aarrow_iota Q''
+; Case 4) Follows from previous lemma:
+; M1 = (lambda x . P) Q, M2 = P'[x:= Q'] and M3 = P''[x :=Q'']
+; Take P''' and Q''' inductively and apply last lemma.
+
+; Lemma: \Aaarrow_beta is the transitive closure of \Aarrow_iota
+; Proof:
+; On one hand, (\Arrow_beta)= \subset \Aarrow_iota \subset \Aarrow_beta
+; OTOH, \Aarrow_beta = (\Arrow_beta=)* \subset (\Aarrow_iota)*
+; So \Aarrow_iota* = \Aarrow_beta.
+
+; Church-Rosser theorem: \Aarrow_beta satisfies the diamond property.
+
+; Corollary: If M =_beta N, then there exists an L \in \Lambda such that
+; M \Aarrow_beta L and N \Aarrow_beta L.
+
+; Corollary: If M \Aarrow_beta N1 and M \Aarrow_beta N2 and both N1 and n2
+; are in beta-normal form, then N1 = N2.
+
+(define test-beta-equality-1
+  (not (are-beta-equal?
+    (cons (cons 'mllambda 'x) 'x)
+    (cons (cons 'mllambda 'x) (cons (cons 'mllambda 'y) 'x))
+    )
+  )
+)
+
+(define mytr
+  (cons
+    (cons 'mllambda 'x)
+    (cons (cons 'mllambda 'y) 'x)))
+
+(define myfl
+  (cons
+    (cons 'mllambda 'x)
+    (cons (cons 'mllambda 'y) 'y)))
+
+(define myifthenelse
+   (lambda (b p q) (cons (cons b p) q)))
+
+(define test-beta-equality-2
+  (are-beta-equal? (myifthenelse mytr 'p 'q) 'p))
+
+(define test-beta-equality-3
+  (are-beta-equal? (myifthenelse myfl 'p 'q) 'q))
+
+(define mypair
+  (lambda (p q) (
+        cons (cons 'mllambda 'x) (cons (cons 'x p) q)
+  )))
+
+(define mypi1
+  (cons
+    (cons 'mllambda 'x)
+    (cons
+      (cons 'mllambda 'y)
+      'x)
+  ))
+
+(define test-beta-equality-4
+  (are-beta-equal?
+    (cons (mypair 'p 'q) mypi1)
+    'p))
+
+(define mypi2
+  (cons
+    (cons 'mllambda 'x)
+    (cons
+      (cons 'mllambda 'y)
+      'y)
+  ))
+
+(define test-beta-equality-5
+  (are-beta-equal?
+    (cons (mypair 'p 'q) mypi2)
+    'q))
+
+(define my-gamma-combinator
+  (cons
+    (cons 'mllambda 'f)
+    (cons
+      (cons
+        (cons 'mllambda 'x)
+        (cons 'f (cons 'x 'x))
+      )
+      (cons
+        (cons 'mllambda 'x)
+        (cons 'f (cons 'x 'x))
+      )
+    )
+  )
+)
+
+; Demonstratng recursion is well-defined in our lambda calculus:
+(let ([F
+       (cons
+           my-gamma-combinator
+OA           (cons (cons 'mllambda 'f) 'M)
+        )
+      ])
+  (are-beta-equal? (apply-preterm-substitution 'M 'f F) F))
+
+; This allows us to write recursive definitions of λ-terms; that
+; is, we may define F as a λ-term satisfying a fixed point equation F =β λx.M
+; where the term F occurs somewhere inside M. However, there may be
+; several terms F satisfying this equation (will these be β-equal?).
+
+; Note to self: in the future, just use lambda for everything :/
