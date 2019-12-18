@@ -54,12 +54,18 @@
   ))
 
 (define is-preterm-of-scheme-symbol?
+  ; In this implementation, symbols are symbols
   (lambda (maybeterm)
     (cond
+      ; Null is not a preterm
       [(null? maybeterm) #f]
-      [(symbol? maybeterm) #t]
+      ; Symbols are preterms except the distinguished lambda symbol
+      [(symbol? maybeterm) (equal? 'mllambda maybeterm)]
+      ; Lambda symbols AND the first part of lambda expressions are not preterms
       [(equal? (car maybeterm) 'mllambda) #f]
+      ; Complete lambda expressions are preterms
       [(is-raised-lambda-symbol? (car maybeterm)) (is-preterm-of-scheme-symbol? (cdr maybeterm))]
+      ; The (properly-defined) sum of two preterms is a preterm
       [else (and (is-preterm-of-scheme-symbol? (car maybeterm)) (is-preterm-of-scheme-symbol? (cdr maybeterm)))]
 )))
 
@@ -72,8 +78,10 @@
 ; If FV(M) = {} then M is *closed.*
 
 (define get-free-variables
+  ; Get all the free variables of a preterm
   (lambda (preterm)
-   (cond
+    (cond
+      ; Symbols by themselves are preterms
       [(symbol? preterm) (list preterm)]
       [(is-raised-lambda-symbol? (car preterm))
         (let ([ft_cdr (get-free-variables (cdr preterm))])
@@ -86,10 +94,8 @@
 
 (define test-get-free-variables-1
   (get-free-variables (cons (cons 'x 'y) 'z)))
-; (ii) FV(位x.x y) = {y};
 (define test-get-free-variables-2
   (get-free-variables (cons (raise-symbol-to-lambda 'x) (cons 'x 'y))))
-; (iii) FV((位x.x x) 位y.y y) = {}.
 (define test-get-free-variables-3
   (get-free-variables (cons
                         (cons (raise-symbol-to-lambda 'x) (cons 'x 'x))
@@ -198,7 +204,7 @@
 
 
 ; 1.1.14. Example. If x, y, z are distinct variables, then for a certain variable u:
-; ((位x.x yz) (位y.x y z) (位z.x y z))[x := y]=(位x.x yz) (位u.y u z) (位z.y y z)
+; ((滛Щx.x yz) (滛Щy.x y z) (滛Щz.x y z))[x := y]=(滛Щx.x yz) (滛Щu.y u z) (滛Щz.y y z)
 
 (define test-preterm-substitution-14
   (apply-preterm-substitution
@@ -525,7 +531,7 @@
   (are-beta-equal? (cons k-star 'kitten) identity))
 
 (define test-beta-reduction-6
-  (are-beta-equal? 'kitten (get-full-beta-reduction (cons (cons k 'kitten) 'doggi梅e))))
+  (are-beta-equal? 'kitten (get-full-beta-reduction (cons (cons k 'kitten) 'doggie))))
 
 
 (define omega-function
@@ -720,14 +726,16 @@
 (let ([F
        (cons
            my-gamma-combinator
-OA           (cons (cons 'mllambda 'f) 'M)
+           (cons (cons 'mllambda 'f) 'M)
         )
       ])
   (are-beta-equal? (apply-preterm-substitution 'M 'f F) F))
 
-; This allows us to write recursive definitions of 位-terms; that
-; is, we may define F as a 位-term satisfying a fixed point equation F =尾 位x.M
+; This allows us to write recursive definitions of 滛Щ-terms; that
+; is, we may define F as a 滛Щ-term satisfying a fixed point equation F =滛Р 滛Щx.M
+; ugh character issues :(
 ; where the term F occurs somewhere inside M. However, there may be
-; several terms F satisfying this equation (will these be 尾-equal?).
+; several terms F satisfying this equation (will these be 滛Р-equal?).
 
 ; Note to self: in the future, just use lambda for everything :/
+
