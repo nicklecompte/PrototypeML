@@ -60,7 +60,7 @@
       ; Null is not a preterm
       [(null? maybeterm) #f]
       ; Symbols are preterms except the distinguished lambda symbol
-      [(symbol? maybeterm) (equal? 'mllambda maybeterm)]
+      [(symbol? maybeterm) (not (equal? 'mllambda maybeterm))]
       ; Lambda symbols AND the first part of lambda expressions are not preterms
       [(equal? (car maybeterm) 'mllambda) #f]
       ; Complete lambda expressions are preterms
@@ -164,33 +164,33 @@
 
 ; (P Q)(x := N) = ( P(x := N) Q(x := N) )
 (define test-preterm-substitution-3
-  (apply-preterm-substitution (cons 'y 'x) 'x (cons 'a 'b)))
+ (apply-preterm-substitution (cons 'y 'x) 'x (cons 'a 'b)))
 
 (define test-preterm-substitution-4
   (apply-preterm-substitution (cons 'y 'x) 'y (cons 'a 'x)))
 
 
-; (\lambda x . P)[x := N] = (\lambda x . P)
+; ; (\lambda x . P)[x := N] = (\lambda x . P)
 (define test-preterm-substitution-5
   (apply-preterm-substitution
     (cons (raise-symbol-to-lambda 'x) (cons 'y 'x))
     'x (cons 'a 'x)))
 
 
-; (\lambda y . P)[x := N] = (\lambda y .P[x := N]) if y \notin FV(N) or x \notin FV(P)
+; ; (\lambda y . P)[x := N] = (\lambda y .P[x := N]) if y \notin FV(N) or x \notin FV(P)
 (define test-preterm-substitution-6
   (apply-preterm-substitution
     (cons (raise-symbol-to-lambda 'y) (cons 'y 'x))
     'x (cons 'a 'x)))
 
-(define test-preterm-substitution-7 ; WRONG!
+(define test-preterm-substitution-7 ; working
   (apply-preterm-substitution
     (cons (raise-symbol-to-lambda 'y) (cons 'y 'b))
     'x (cons 'x 'y)))
 
 
-; (\lambda y . P)[x := N] = (\lambda z . P[y := z][x := N]) if y \in FV(N) and x \in FV(P),
-; where z \in V is chosen such that z \notin FV(P) \Union FV(N)
+; ; (\lambda y . P)[x := N] = (\lambda z . P[y := z][x := N]) if y \in FV(N) and x \in FV(P),
+; ; where z \in V is chosen such that z \notin FV(P) \Union FV(N)
 (define test-preterm-substitution-8
   (apply-preterm-substitution
     (cons (raise-symbol-to-lambda 'y) (cons 'a (cons 'y 'x)))
@@ -203,8 +203,8 @@
       (cons 'y 'z)) 'x 'y))
 
 
-; 1.1.14. Example. If x, y, z are distinct variables, then for a certain variable u:
-; ((œô§»x.x yz) (œô§»y.x y z) (œô§»z.x y z))[x := y]=(œô§»x.x yz) (œô§»u.y u z) (œô§»z.y y z)
+; ; 1.1.14. Example. If x, y, z are distinct variables, then for a certain variable u:
+; ; ((ï¿½ï¿½ï¿½ï¿½x.x yz) (ï¿½ï¿½ï¿½ï¿½y.x y z) (ï¿½ï¿½ï¿½ï¿½z.x y z))[x := y]=(ï¿½ï¿½ï¿½ï¿½x.x yz) (ï¿½ï¿½ï¿½ï¿½u.y u z) (ï¿½ï¿½ï¿½ï¿½z.y y z)
 
 (define test-preterm-substitution-14
   (apply-preterm-substitution
@@ -227,7 +227,7 @@
 ; b) P ~alpha P' => for all Z in Lambda^{-}, P . Z ~alpha  P' . Z
 ; c) P ~alpha P' => for all Z in Lambda^{-}, Z . P ~alpha  Z . P'
 ; d) P ~alpha P' => P' ~alpha P
-; e P ~alpha P' and P' ~alpha P'' => P ~alpha P''
+; ; e P ~alpha P' and P' ~alpha P'' => P ~alpha P''
 
 (define are-alpha-equivalent-preterms?
     (lambda (interm1 interm2)
@@ -315,94 +315,94 @@
 
 (are-alpha-equivalent-preterms? (cons (cons (cons 'mllambda 'a) (cons (cons 'mllambda 'b) 'a)) (cons (cons 'mllambda 'x) (cons (cons 'mllambda 't) 'x))) (cons (cons 'mllambda 'x) (cons (cons 'mllambda 't) 'x)))
 
-; $ = ?????????????????????????? (26 characters)
-; ? = \lambda abcdefghijklmnopqstuvwxyzr . r (thisisafixedpointcombinator)
-; $ F = ?????????????????????????? F
-;     = (\lambda abcdefghijklmnopqstuvwxyzr . r (thisisafixedpointcombinator))????????????????????????? F
-;     ; Now F is in the 26th position:
-;     =_beta  (\lambda abcdefghijklmnopqstuvwxyz . F (thisisafixedpointcombinatoF))?????????????????????????
-;     =_beta F ?????????????????????????? F
-;     = F ($ F)
-; Examples:
-; lambda x . x ~alpha lambda y . y
-; lambda x . x z ~alpha lambda y . y z
-; lambda x . (lambda y . x y) ~alpha lambda y . (lambda x . y x)
-; lambda x . x y NOT ~alpha lambda x . x z
+; ; $ = ?????????????????????????? (26 characters)
+; ; ? = \lambda abcdefghijklmnopqstuvwxyzr . r (thisisafixedpointcombinator)
+; ; $ F = ?????????????????????????? F
+; ;     = (\lambda abcdefghijklmnopqstuvwxyzr . r (thisisafixedpointcombinator))????????????????????????? F
+; ;     ; Now F is in the 26th position:
+; ;     =_beta  (\lambda abcdefghijklmnopqstuvwxyz . F (thisisafixedpointcombinatoF))?????????????????????????
+; ;     =_beta F ?????????????????????????? F
+; ;     = F ($ F)
+; ; Examples:
+; ; lambda x . x ~alpha lambda y . y
+; ; lambda x . x z ~alpha lambda y . y z
+; ; lambda x . (lambda y . x y) ~alpha lambda y . (lambda x . y x)
+; ; lambda x . x y NOT ~alpha lambda x . x z
 
-; Definition For any M \in \Lambda^{-} define the equivalence class [M]_{alpha} by
+; ; Definition For any M \in \Lambda^{-} define the equivalence class [M]_{alpha} by
 
-; [M]_{alpha} = {N \in \Lambda^{-} : M ~alpha N}
+; ; [M]_{alpha} = {N \in \Lambda^{-} : M ~alpha N}
 
-; Then the set of lambda terms., \Lambda, is the set of distinct equivalence classes.
-; NOTE: Often people use lambda term to mean preterm, and equivalent preterms
-; are termed "identfied" lambda terms.
+; ; Then the set of lambda terms., \Lambda, is the set of distinct equivalence classes.
+; ; NOTE: Often people use lambda term to mean preterm, and equivalent preterms
+; ; are termed "identfied" lambda terms.
 
-; From here on we almost always refer to this equivalence class,
-; not the preterm itself, and we drop the [_]_{alpha} notation.
+; ; From here on we almost always refer to this equivalence class,
+; ; not the preterm itself, and we drop the [_]_{alpha} notation.
 
-; Definition: For M \in \Lambda define the set FV(M) \subset V of
-;free variables of M as follows:
+; ; Definition: For M \in \Lambda define the set FV(M) \subset V of
+; ;free variables of M as follows:
 
-; 1) FV(x) = {x}
-; 2) FV(\lambda x, P) = FV(P) \ {x}
-; 3) FV(P,Q) = FV(P) \union FV(Q)
-; If FV(M) = {} then M is closed.
+; ; 1) FV(x) = {x}
+; ; 2) FV(\lambda x, P) = FV(P) \ {x}
+; ; 3) FV(P,Q) = FV(P) \union FV(Q)
+; ; If FV(M) = {} then M is closed.
 
-; Note: strictly speaking, FV is a function from \Lambda to V.
-; We must show that function exists and is unique.
-; Uniqueness is easy: any two implementations FV_1 and FV_2 must
-; 1) evaluate to the same thing for any symbol by rule 1
-; 2) evaluate to the same thing for any \lambda x . y by rule 1 and 2
-; 3) evalute to the same pair by rule 3
-; The result follows from induction.
-; Existence: just take a function that chooses a member of the equivalnece
-; class at random. Since the choice is irrelevant (by uniqueness),
-; this is well-defined.
+; ; Note: strictly speaking, FV is a function from \Lambda to V.
+; ; We must show that function exists and is unique.
+; ; Uniqueness is easy: any two implementations FV_1 and FV_2 must
+; ; 1) evaluate to the same thing for any symbol by rule 1
+; ; 2) evaluate to the same thing for any \lambda x . y by rule 1 and 2
+; ; 3) evalute to the same pair by rule 3
+; ; The result follows from induction.
+; ; Existence: just take a function that chooses a member of the equivalnece
+; ; class at random. Since the choice is irrelevant (by uniqueness),
+; ; this is well-defined.
 
-; We can define substitution similarly.
-; For M, N  \in \Lambda, and x \in V, the
-; substititon of N for x in M is defined:
-; x[x: = N] = N
-;  y[x:=N] = y
-; {P Q}[x:=N] = P[x:=N]Q[x:=N]
-;  (lambda y . P)[x:=N] = \lambda y . (P[x:=N]) if x != y and y\notin FV(N)
+; ; We can define substitution similarly.
+; ; For M, N  \in \Lambda, and x \in V, the
+; ; substititon of N for x in M is defined:
+; ; x[x: = N] = N
+; ;  y[x:=N] = y
+; ; {P Q}[x:=N] = P[x:=N]Q[x:=N]
+; ;  (lambda y . P)[x:=N] = \lambda y . (P[x:=N]) if x != y and y\notin FV(N)
 
-;; WARNING: the notes did not have this one and I am not sure why.
-;; (lambda y . P)[x := N] = \lambda z . (P [y:=z][x:=N]) o.w.
+; ;; WARNING: the notes did not have this one and I am not sure why.
+; ;; (lambda y . P)[x := N] = \lambda z . (P [y:=z][x:=N]) o.w.
 
-;; Reductin
+; ;; Reductin
 
-; Defintion: let \arrow_\beta be the smallest relation on \Lambda such that
-; (\lambda x . P) Q \arrow_\beta P[x:=Q]
-; which is closed under the rules
-; a) P \arrow_\beta P' => for all x in V, lambda x . P \arrow_\beta lambda x . P'
-; b) P \arrow_\beta P' => for all Z in Lambda, P . Z \arrow_\beta  P' . Z
-; c) P \arrow_\beta P' => for all Z in Lambda, Z . P \arrow_\beta  Z . P'
+; ; Defintion: let \arrow_\beta be the smallest relation on \Lambda such that
+; ; (\lambda x . P) Q \arrow_\beta P[x:=Q]
+; ; which is closed under the rules
+; ; a) P \arrow_\beta P' => for all x in V, lambda x . P \arrow_\beta lambda x . P'
+; ; b) P \arrow_\beta P' => for all Z in Lambda, P . Z \arrow_\beta  P' . Z
+; ; c) P \arrow_\beta P' => for all Z in Lambda, Z . P \arrow_\beta  Z . P'
 
-; Definition:
-; The relation \Aarrow_\beta (multi-step beta-reduction) is the transitive-reflexive
-; closure of \arrow_\beta - that is, \Aarrow_\beta is the smallest relation closed
-; under the rules
-; P \arrow_\beta P' => P \Aarrow_\beta P'
-; P \Aarrow_\beta P' and P' \Aarrow_\beta P'' => P \Aarrow_\beta P''
-; P \Aarrow_\beta P
+; ; Definition:
+; ; The relation \Aarrow_\beta (multi-step beta-reduction) is the transitive-reflexive
+; ; closure of \arrow_\beta - that is, \Aarrow_\beta is the smallest relation closed
+; ; under the rules
+; ; P \arrow_\beta P' => P \Aarrow_\beta P'
+; ; P \Aarrow_\beta P' and P' \Aarrow_\beta P'' => P \Aarrow_\beta P''
+; ; P \Aarrow_\beta P
 
-; Definition
-; The relation =_beta (beta-equality) is the transitive-reflexive-symmettic
-; closure of \arrow_\beta. We will often just write =.
+; ; Definition
+; ; The relation =_beta (beta-equality) is the transitive-reflexive-symmettic
+; ; closure of \arrow_\beta. We will often just write =.
 
-; Examples:
-; (\lambda x . x x ) (\lambda z . z) \arrow_\beta
-;    (x x)[x := \lambda z . z]
-;    (\lambda z .z )(\lambda y . y)
-; (\lambda z .z) (\lambda y.y) \arrow_\beta
-;     z[z:=\lambda y. y]
-;     = \lambda y .y
-; (\lambda x.x x)(\lambda z.z) \Aarrow_\beta \lambda y .y
-; (\lambda x . x) y z = y ((\lambda x . x) z)
+; ; Examples:
+; ; (\lambda x . x x ) (\lambda z . z) \arrow_\beta
+; ;    (x x)[x := \lambda z . z]
+; ;    (\lambda z .z )(\lambda y . y)
+; ; (\lambda z .z) (\lambda y.y) \arrow_\beta
+; ;     z[z:=\lambda y. y]
+; ;     = \lambda y .y
+; ; (\lambda x.x x)(\lambda z.z) \Aarrow_\beta \lambda y .y
+; ; (\lambda x . x) y z = y ((\lambda x . x) z)
 
 
-; a record type to represent a beta reduction
+; ; a record type to represent a beta reduction
 
 ;(define-record-type MLRecordTypeElement
 ;  (fields property-name type value) (nongenerative))
@@ -494,22 +494,22 @@
   )
 )
 
-;;; Informal interpretation ;;;
+; ;;; Informal interpretation ;;;
 
-; Informally, \lambda-terms express functions and applications of
-; functions in a pure form. For instance, the \lambda-term
-; I = \lambda x. x
-; intutively denotes the function that maps any argument to itself.
-; This is similar to the n |-> n notation in mathemmatics.
-; Howecver, \lammbda x.x is a *stribng* over an alphabet with symbols
-; \lambda, x, etc.
-; As in the notaiton n |-> n, the name of the abstracted variable
-; is not significant; this is why we identify \lambda x . x with \lambda y . y, etc.
+; ; Informally, \lambda-terms express functions and applications of
+; ; functions in a pure form. For instance, the \lambda-term
+; ; I = \lambda x. x
+; ; intutively denotes the function that maps any argument to itself.
+; ; This is similar to the n |-> n notation in mathemmatics.
+; ; Howecver, \lammbda x.x is a *stribng* over an alphabet with symbols
+; ; \lambda, x, etc.
+; ; As in the notaiton n |-> n, the name of the abstracted variable
+; ; is not significant; this is why we identify \lambda x . x with \lambda y . y, etc.
 
-; beta-reduction formalizes the calculation of values in functions
-; by collapsing and collecting like terms.
+; ; beta-reduction formalizes the calculation of values in functions
+; ; by collapsing and collecting like terms.
 
-; One good preterm is
+; ; One good preterm is
 (define identity (cons (cons 'mllambda 'x) 'x))
 
 (define test-beta-reduction-5
@@ -731,11 +731,11 @@
       ])
   (are-beta-equal? (apply-preterm-substitution 'M 'f F) F))
 
-; This allows us to write recursive definitions of œô§»-terms; that
-; is, we may define F as a œô§»-term satisfying a fixed point equation F =œô§² œô§»x.M
+; This allows us to write recursive definitions of ï¿½ï¿½ï¿½ï¿½-terms; that
+; is, we may define F as a ï¿½ï¿½ï¿½ï¿½-term satisfying a fixed point equation F =ï¿½ï¿½ï¿½ï¿½ ï¿½ï¿½ï¿½ï¿½x.M
 ; ugh character issues :(
 ; where the term F occurs somewhere inside M. However, there may be
-; several terms F satisfying this equation (will these be œô§²-equal?).
+; several terms F satisfying this equation (will these be ï¿½ï¿½ï¿½ï¿½-equal?).
 
 ; Note to self: in the future, just use lambda for everything :/
 
