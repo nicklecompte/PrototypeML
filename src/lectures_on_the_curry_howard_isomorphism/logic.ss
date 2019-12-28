@@ -1,1 +1,0 @@
-; Boolean logic stuff, Ch.2 of Lectures on Curry Howard

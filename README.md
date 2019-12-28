@@ -1,2 +1,7 @@
 # PrototypeML
-Playing around with Chez Scheme for a statically (dependently)-typed language I've been thinking about
+
+Playing around with Chez Scheme for a statically (dependently)-typed language I've been thinking about. Part of the context here is in understanding formalized applied ontologies, particularly in a clinical informatics context.
+
+This is really a sandbox from somebody who knows a decent amount of math but is basically ignorant about a lot of this stuff. Some of this is open-source snippets, some are papers transcribed to Chez Scheme. Since I am rusty with Scheme I am also going through [TSPL4](https://www.scheme.com/tspl4) to freshen up and learn R6RS in depth. I am also going through the Seasoned Schemer and have some notes to that effect, but I am more familiar with the patterns/ideas in the book and less about the Scheme specification, about which I am still pretty fuzzy.
+
+Currently the highlight are the modules in src/lectures_on_the_curry_howard_isomorphism, an attempt to translate these notes into very (somewhat deliberately) clunky and pedantic Scheme: [.pdf link to the notes](https://disi.unitn.it/~bernardi/RSISE11/Papers/curry-howard.pdf) This has been both personally rewarding and hopefully will form the basis for whatever language I plan to write [N.B. Until this repo gets abandoned by the next 1970's-era shiny thing :)]. I also plan to introduce some cleanup in a similarly-spelled .ss file in prototype. For instance, the ideas from Ch. 1 of LotCHI and the code in untyped_lambda_calculus.ss form the basis for /prototype/untyped-banneker/

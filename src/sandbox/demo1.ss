@@ -9,20 +9,6 @@
           [else (and (equal? (car sublist) (car inputlist))
                        (list-starts-with? (cdr inputlist) (cdr sublist)))])))
 
-(define list-starts-with-tests
-  (and
-    (list-starts-with? '() '())
-    (not (list-starts-with? '() '(33)))
-    (list-starts-with? (list "cat") "cat")
-    (list-starts-with? (list 5 3 1) 5)
-    (list-starts-with? (list 5 3 1) '(5))
-    (not (list-starts-with? (list 5 3 1) 3))
-    (not (list-starts-with? (list 5 3 1) '(3)))
-    (list-starts-with? (list 5 3 1) (list 5 3))
-    (list-starts-with? (list 5 3 1) (list 5 3 1))
-    (not (list-starts-with? (list 5 3 1) (list 5 3 1 2)))
-    ))
-
 (define remove-from-start-of-list
   (lambda (inputlist sublist)
     (cond

@@ -739,3 +739,444 @@
 
 ; Note to self: in the future, just use lambda for everything :/
 
+; We can prsent numbers as lambda terms:
+; Definition: For any n \ \mathbb{N} and lambda terms F and A, defined F^N(A)
+;(n-times iterated application) as:
+; F^0(A) = A
+; F^n(A) = F(F^{n-1}(A))
+(define n-times-iterated-application
+  (lambda (n f a) (
+      cond
+       [(= n 0) a]
+       [else (cons f (n-times-iterated-application (- n 1) f a))])
+
+  ))
+; For any n \in \mathbb{N}, the Church numeral c_n is defined by
+
+(define church_n
+  (lambda (n)
+    (cons
+        (cons 'mllambda 's)
+        (
+            cons (cons 'mllambda 'z) (n-times-iterated-application n 's 'z)
+        )
+    )
+))
+; The following shows how to do arithmetic on church numerals:
+; 1.1.5. Notation. We use the shorthands
+; (i) (KLM) for ((K L) M);
+; (ii) (λx λy M) for (λx (λy M));
+; (iii) (λx M N) for (λx (M N));
+; (iv) (M λx N) for (M (λx N)).
+; We write λx1 ...xn.M for λx1 . . . λxn M. As a special
+; case, we write λx.M for λx M.
+;(lx (ly (lz ((x s) (y s z)))))
+(define a_plus
+  (cons
+    (cons 'mllambda 'x) (cons
+      (cons 'mllambda 'y) (cons
+        (cons 'mllambda 'as) (cons
+          (cons 'mllambda 'az) (
+            cons (cons 'x 'as) (cons (cons 'y 'as) 'az))))
+  )))
+
+(define test-a_plus
+    (are-beta-equal?
+      (cons
+        (cons a_plus (church_n 14))
+        (church_n 17)
+      )
+      (church_n 31))
+)
+
+(define test-a_plus_big
+    (are-beta-equal?
+      (cons
+        (cons a_plus (church_n 870))
+        (church_n 561)
+      )
+      (church_n 1431))
+)
+
+(define a_times
+    (cons (cons 'mllambda 'x) (cons
+      (cons 'mllambda 'y) (cons
+        (cons 'mllambda 'as) (
+            cons 'x (cons 'y 's)
+        )))
+))
+
+(define test_a_times
+  (are-beta-equal?
+    (cons
+      (cons a_times (church_n 2)) (church_n 2)
+    )
+    (church_n 4)
+  )
+)
+
+(define test_a_times_medium
+  (are-beta-equal?
+    (cons
+      (cons a_times (church_n 13)) (church_n 19)
+    )
+    (church_n 247)
+  )
+)
+
+(define test_a_times_mediumlarge
+  (are-beta-equal?
+    (cons
+      (cons a_times (church_n 64))(church_n 131)
+    )
+    (church_n 8384)
+  )
+)
+
+; Works but slow (understandable!)
+; (define test_a_times_large
+;   (are-beta-equal?
+;     (cons
+;       (cons a_times (church_n 264))(church_n 131)
+;     )
+;     (church_n 34584)
+;   )
+; )
+
+(define a_exp
+  (cons
+    (cons 'mllambda 'x)
+    (cons
+      (cons 'mllambda 'y)
+      (cons 'y 'x)
+    )
+  )
+)
+
+(define test_a_exp
+  (are-beta-equal?
+    (cons
+      (cons a_exp (church_n 2)) (church_n 2)
+    )
+    (church_n 4)
+  )
+)
+
+(define test_a_exp_false
+  (not (are-beta-equal?
+    (cons
+      (cons a_exp (church_n 3)) (church_n 3)
+    )
+    (church_n 10)
+    )
+  )
+)
+
+(define test_a_exp_medium
+  (are-beta-equal?
+    (cons
+      (cons a_exp (church_n 4)) (church_n 3)
+    )
+    (church_n 64)
+  )
+)
+
+(define test_a_exp_medium2
+  (are-beta-equal?
+    (cons
+      (cons a_exp (church_n 3)) (church_n 4)
+    )
+    (church_n 81)
+  )
+)
+
+(define test_a_exp_large
+  (are-beta-equal?
+    (cons
+      (cons a_exp (church_n 9)) (church_n 4)
+    )
+    (church_n 6561)
+  )
+)
+
+; Note that forms which operate the same on Church
+; numerals might not be beta-equivalent forms.
+
+(define succ1
+  (cons
+    (cons 'mllambda 'x) (cons
+      (cons 'mllambda 'as) (cons
+        (cons 'mllambda 'az) (cons
+          'as (cons (cons 'x 'as) 'az))))))
+
+(define test_succ1
+  (are-beta-equal?
+    (cons succ1 (church_n 12))
+    (church_n 13)
+  )
+)
+
+(define succ2
+  (cons
+    (cons 'mllambda 'x) (cons
+      (cons 'mllambda 'as) (cons
+        (cons 'mllambda 'az) (cons
+          (cons 'x 'as) (cons 'as 'az))))))
+
+
+(define test_succ2
+  (are-beta-equal?
+    (cons succ2 (church_n 12))
+    (church_n 13)
+  )
+)
+
+(are-beta-equal? succ1 succ2)
+
+; (define test_a_exp_verylarge
+;   (are-beta-equal?
+;     (cons
+;       (cons a_exp (church_n 8)) (church_n 5)
+;     )
+;     (church_n 32768)
+;   )
+; )
+
+; Let C be some lambda term which expresses a condition,
+; i.e., let C c_n \beta_equal true or C c_n \beta_equal false
+; for all n \in N. Let S define the successor functionn.
+; Suppose we want to compute in lambda calculus, for any
+; number, the smallest number greater than the given one that
+; satisfies the condition. This is expressed by the
+; lambda term F:
+;
+;   H = \lambda f . \lambda x . (if (C x) then x else f (S x))
+;   F = Gamma H
+
+(define h
+  (lambda (c)
+    (
+      (cons (cons 'mllambda 'fun)
+          (cons
+            (cons 'mllambda 'r)
+            (myifthenelse
+              (cons c 'r)
+              'r
+              (cons 'fun (cons succ1 'r))
+            )
+          )
+      )
+    )
+  )
+)
+
+(define F
+  (lambda (c)
+    (cons my-gamma-combinator (h c))))
+
+; Example:
+; F c_4 = (Gamma H) c_4
+;       =_beta H (Gamma H) c_4 by definition of gamma
+;       = (lam f . lam x .
+;           if (C x) then x else f (S x))(Gamma H)c_4
+;       =_beta if (C c_4) then c_4 else (Gamma h) (S c4)
+;       = if (C c_4) then c_4 else F (S c4)
+
+; (define test_cond_on_churches
+; ; want to send c_1 (λs.λz.s z) to true (λx.λy.x),
+; ;all else to false (λx.λy.y)
+;   (cons (cons 'mllambda 'numeral)
+;     ())
+; )
+
+; Definition:
+; (i)   A numeric function is a map
+;
+;   f : \mathbb{N}^m -> \mathbb{N}
+;
+; For testing and demonstration purposes let's define
+; a compiler-verified *bounded* numeric function
+
+; (ii) A numeric function f is lambda-definable if
+; there is an alpha pre-term F such that
+; F c_{n_1} ... c_{n_m} =_beta c_f(n_1...n_m)
+; for all natural numbers n_1...n_m.
+;
+(define lambda-definable?
+  (lambda (numeric-function preterm test-args)
+    (are-beta-equal?
+      (cons preterm (map church_n test-args))
+      (church_n (numeric-function test-args)))
+  )
+)
+; Definition:
+; The class of recursive functionns is the smallest
+; class of numeric functions conntaining the following
+; initial functions:
+;
+; projections: U_i^m(n_1,...,n_m) = n_i for all i in [1..m]
+; successor : S^+(n) = n + 1
+; zero: Z(n) = 0
+;
+; and closed under the following:
+;
+;   - composition: if g : N^k -> N and h_1,...h_k : N^m -> N are both recursive, then
+;       f : N^m -> N = g(h_1(n_1..n_m),h_2(n_1..n_m),...,h_k(n_1...n_m))
+; is also recursive.
+;
+;   - primitive recursion: if g : N^m -> N and h : N^{m+2} -> N are recursive,
+; then so is f : N^{m+1} -> N, defined by
+; f(0,n_1,...,n_m) = g(n_1,...,n_m)
+; f(n+1,n_1,...,n_m) = h(f(n,n_1,...,n_m),n,n_1,...)
+;
+;   - minimization: if g : N^{m+1} -> N is recursive and for all n_1,...,n_m there is an
+; n such that g(n,n_1,...,n_m) = 0 then f : N^m -> N defined as follows is also recursive:
+;   f(n_1,...,n_m) = [\mu n . g(n,n_1,...,n_m) = 0]
+; where \mu n . k(n) = i is a function that returns the smallest number number n where k(n) = 1,
+;
+; Lemma: The initial functions defined above are lambda-definable.
+; Proof:
+; U_i^M = lambda x_1 ... lambda x_m . x_i
+; S+ = lambda x . lambda s . lambda z . (x s z)
+; Z = lambda x . c_0
+;
+; Lemma: the lambda-definable functions are closed under composition.
+; Proof: Let g : N^k -> N be lambda-definable with the alpha term G
+; and h_i : N^m -> N be lambda-definable with the alpha term H_i.
+; Then g(h_1(n_1..n_m),h_2(n_1..n_m),...,h_k(n_1...n_m)) is lambda definable by
+; F = lambda x_1 ... lambda x_m . G (H_1 x_1 ... x_m) ... (H_k x_1 ... x_m)
+;
+; Lemma: the lambda-definable functions are closed under primitive recursion
+; Proof: If g: N^m -> N is lambda-definable by some G and h : N^{m+2} -> N is
+; lambda-definable by some H, then f : N^{m+1} -> N defined by
+; f(0, n_1, ..., n_m) = g(n_1,...,n_m)
+; f(n+1,n_1,...,n_m) = h(f(n,n_1,...,n_m))
+;
+; is lambda-definable by F, where
+; F = lambda x . lambda x_1 . ... lambda x_m . x T[c_0, G x_1 ... x_m] \pi_2
+; T = lambda p . [S^+(p \pi_1) H (p \pi_2) (p \pi_1)x1,...,x_m]
+;
+; since
+; F c_n c_{n_1}...c_{n_m} =_{beta} c_n T[c_0, G c_{n_1} ... c_{n_m}] \pi_2
+;                         =_{beta} T^n([c_0, G c_{n_1} ... c_{n_m}]) \pi_2
+; and
+; T^n([c_n, c_{f(n_1,...,n_m)}]) =_{beta} [S^+(c_n) H (c_{f(n_1,...,n_m)}) c_n c_{n_1},...,c_{n_m}]
+;                                =_{beta} [c_{n+1}, c_{h(f(n,n_1,...,n_m),n,n_1,...,n_m}]
+;                                =_{beta} [c_{n+1}, c_{f(n+1,n_1,...,n_m)}]
+; Therefore
+;   T^n([c_0, G c_{n_1} ... c_{n_m}])  =_{beta} [c_{n+1}, c_{f(n+1,n_1,...,n_m)}]
+; and since F c_n c_{n_1}...c_{n_m} =_{beta} T^n([c_0, G c_{n_1} ... c_{n_m}]) \pi_2,
+; F c_n c_{n_1}...c_{n_m} =_{beta} c_{f(n+1,n_1,...,n_m)}
+;
+; Lemma: The lambda-definable functions are closed under minimization.
+; Proof: If g : N{m+1} -> N is lambda-definable by G and for all n_1,...n_m
+; there is an n such that g(n, n_1, ..., n_m) = 0, then f : N^{m} -> N defined by
+;
+;   f(n_1,...,n_m) = \mu m , g(n,n_1,...,n_m) = 0
+;
+; is lambda-definable by
+;
+;   F = \lambda x_1 . \lambda x_2 . ... \lambda x_m . H c_0,
+;
+; where
+;
+;   H =_{beta} \lambda y . (if (zero? (G x_1 ... x_m y)) then y else H(S^+ y))
+;
+; and
+;
+;   zero? = lambda x . x (lambda y . false) true
+; We must show that
+; F c_{n_1} ... c_{n_m} =_{beta} c_{f(n_1,...,n_m)}
+; recall \mu m . g(m) = 0 denotes the smallest number m satisfying g(m) = 0
+; true = \lambda x . \lambda y . x
+; false = \lambda x . \lambda y . y
+; if B then P else Q = B P Q
+; if true then P else Q = (lambda x . \lambda y . x) (P Q)
+;                       =_{beta} (lambda x . x) P
+;                       =_{beta} P
+; if (zero? (G x_1 ... x_m y)) then y else H(S^+ y) = (zero? (G x_1 ... x_m y)) y H(S^+ y)
+; H =_{beta} lambda y . (zero? (G x_1 ... x_m y)) y H(S^+ y)
+; F c_{n_1} ... c_{n_m} =_{beta} c_{f(n_1,...,n_m)} = c_{n_a}
+; where g(n_a,n_1,...,n_m) = 0
+; H c_0 =_{beta} (zero? (G x_1 ... x_m c_0)) c_0 H(c_1)
+;       =_{beta}
+; Now:
+; (zero? (G x_1 ... x_m c_0)) = (G x_1 ... x_m c_0) (lambda y . false) true
+; By lambda-definability of g:
+; (zero? (G x_1 ... x_m c_0)) =_{beta} c_{g(c_0, x_1...x_m)} (lambda y . false) true
+; close...
+;
+; Therefore we have the following:
+; Theorem - All recursive functions are lambda-definable.
+; The converse is also true, and a similar result holds for partial functions.
+
+
+;
+; Definition: Let <*,*> : N^2 -> N be a bijective, recursive function.
+; The map # : \Lambda^{-} -> N is defined by
+; #(v_i) = <0,i>
+; #(\lambda x, M) = <2, <#(x),#(M)>>
+; #(M N) = <3, <#(M), #(N)>>
+;
+; For an a lambda term M, we take #(M) to be the least
+; possible number #(M') where M' is an alpha-representative
+; of M. Also for lambda terms M, ceil(M) = c_{#(M)}
+;
+; Definition: Let A \subset \Lambda be a set of lambda terms.
+;   1) A is closed under beta equality if
+;       M \in A and M =_{\beta} N => N \in A
+;   2) A is non-trivial if A != {} and A != \Lambda
+;   3) A is recursive if
+
+
+
+
+;;;;;; Exercises ;;;;;;;;;;
+
+; 1.7.1. Exercise. Show, step by step, how application of the conventions in
+; Notation 1.1.5 allows us to express the pre-terms in Example 1.1.2 as done
+; in Example 1.1.9.
+
+; I hate this dumb notation :(
+
+; 1.1.5. Notation. We use the shorthands
+; (i) (KLM) for ((K L) M);
+; (ii) (λx λy M) for (λx (λy M));
+; (iii) (λx M N) for (λx (M N));
+; (iv) (M λx N) for (M (λx N)).
+
+; 1.1.2. Example. The following are pre-terms.
+; (i) ((v0 v1) v2) ∈ Λ−;
+; (ii) (λv0 (v0 v1)) ∈ Λ−;
+; (iii) ((λv0 v0) v1) ∈ Λ−;
+; (iv) ((λv0 (v0 v0)) (λv1 (v1 v1))) ∈ Λ−.
+
+; Solution:
+; (i) ((v0 v1) v2) = (v0 v1 v2)
+; (ii) (\lambda v0 (v0 v1)) = (\lambda v0 v1)
+; (iii) ((\lambda v0 v0) v1) = (\lambda v0 v0) v1
+; (iv) ((\lambda v0 (v0 v0)) (\lambda v1 (v1 v1))) =
+;   \lamba v0 v0 v0 \lamba v1 v1 v1
+;
+; 1.7.2. Exercise. Which of the following abbreviations are correct?
+; 1. λx.x y = (λx.x) y; NOT correct - \lambda x. x y = \lambda x (x y)
+; 2. λx.x y = λx.(x y); correct
+; 3. λx.λy.λz.x y z = (λx.λy.λz.x) (y z);
+;   not correct:
+;   λx.λy.λz.x y z = λx.(λy.λz.x y z)
+;                  = λx.(λy.(λz.x y z))
+;                  = λx.(λy.(λz.(x y z)))
+;                  = λx.(λy.(λz.((x y) z)))
+; 4. λx.λy.λz.x y z = ((λx.λy.λz.x) y) z; not correctt, see above
+; 5. λx.λy.λz.x y z = λx.λy.λz.((x y) z). ; correct
+
+; 1.7.3. Exercise. Which of the following identifications are correct?
+; 1. λx.λy.x = λy.λx.y; correct
+; 2. (λx.x) z = (λz.z) x. incorrect
+
+; 1.7.4. Exercise. Do the following terms have normal forms?
+; 1. I, where λx.x;
+; 2. Ω, i.e., ω ω, where ω = λx.x x;
+; 3. K I Ω where K = λx.λy.x;
+; 4. (λx.K I (x x)) λy.K I (y y);
+; 5. (λx.z (x x)) λy.z (y y).
