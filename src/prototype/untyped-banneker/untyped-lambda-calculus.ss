@@ -4,7 +4,7 @@
   lambda-preterm?
   alpha-preterm?
 )
-(import (untyped-banneker utils) (chezscheme))
+(import (untyped-banneker utils))
 
 ; Alpha preterms that are parsed from untyped-banneker
 ; are turned to Scheme symbols or Scheme primitives for CPU-ish types.
