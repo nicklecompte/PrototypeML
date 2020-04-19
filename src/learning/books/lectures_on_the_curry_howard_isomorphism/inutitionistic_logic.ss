@@ -81,4 +81,27 @@
 ;
 ; Natural deduction
 ;
-;
+; We assume an infinite set PV of propositional
+; variables and we define the set Φ of formulas by induction, represented by
+; the following grammar:
+; Φ ::= ⊥ | PV | (Φ → Φ) | (Φ ∨ Φ) | (Φ ∧ Φ).
+
+(define-syntax create-formula
+  (lambda (x) (syntax-case x (propositional-variable constant app func pi : ->)
+    [(_ name (sort sort-value))
+      #'(pseudoterm-interface (pseudoterm-kind sort) sort-value name)]
+    [(_ name (variable variable-value))
+      #'(pseudoterm-interface (pseudoterm-kind variable) variable-value name)]
+    [(_ name (constant constant-value))
+      #'(pseudoterm-interface (pseudoterm-kind constant) constant-value name)]
+    [(_ name (app left right))
+      #'(pseudoterm-interface (pseudoterm-kind app) (cons left right) name)]
+    [(_ name (func variable-term : variable-type-term -> body))
+      #'(pseudoterm-interface (pseudoterm-kind func)
+        (cons (cons 'λ (cons variable-term variable-type-term)) body) name)]
+    [(_ name (pi variable-term : variable-type-term -> body))
+      #'(pseudoterm-interface (pseudoterm-kind pi)
+        (cons (cons 'π (cons variable-term variable-type-term)) body) name)]
+    )
+  )
+)

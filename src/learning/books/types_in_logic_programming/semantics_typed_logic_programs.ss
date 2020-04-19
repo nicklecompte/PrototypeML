@@ -55,3 +55,99 @@
 ;
 ;   They start by defining a type language, which consists of a set of elements
 ; (the types) together with an ordering relation.
+
+(define-enumeration ordering (LT GT EQ) orderings)
+
+; LIST[T] -> (T -> T -> bool) -> bool
+(define (reflexive? input-set relation-fn)
+  (or
+    (null? input-set)
+    (and
+      (relation-fn (car input-set) (car input-set))
+      (reflexive? (cdr input-set) relation-fn))))
+
+; LIST[T] -> (T -> T -> bool) -> bool
+(define (anti-symmetric? input-set order-fn)
+  (or
+    (null? input-set)
+    (letrec [(crawlfun (lambda (cur-item all-items)
+      (cond
+        [(null? all-items) #t]
+        [(and (order-fn cur-item (car all-items)) (order-fn (car all-items) cur-item))
+          (and
+            (equal? (car all-items) cur-item)
+            (crawlfun cur-item (cdr all-items)))]
+        [else (crawlfun cur-item (cdr all-items))])))]
+      (and
+        (crawlfun (car input-set) input-set)
+        (anti-symmetric? (cdr input-set) order-fn)))))
+
+(define (transitive? input-set order-fn)
+  (or
+    (null? input-set)
+    (letrec [(crawlfun (lambda (cur-item all-items)
+      (cond
+        [(null? all-items) #t]
+        [(order-fn cur-item (car all-items))
+          (letrec [(cur2 (car all-items)) (crawlfun2 (lambda (all2)
+            (cond
+              [(null? all2) #t]
+              [(order-fn cur2 (car all2))
+                (and (order-fn cur-item (car all2)) (crawlfun2 (cdr all2)))]
+              [else (crawlfun2 (cdr all2))])))]
+            (crawlfun2 all-items))]
+        [else (crawlfun cur-item (cdr all-items))])))]
+      (and
+        (crawlfun (car input-set) input-set)
+        (transitive? (cdr input-set) order-fn)))))
+
+; LIST[T] -> (T -> T -> partial-ordering) -> bool
+(define (partial-order? input-set order-fn)
+  (or
+    (null? input-set)
+    (let ([cur-item (car input-set)])
+    (and
+      (order-fn cur-item cur-item)
+      (letrec [(crawler-first (lambda (all-items)
+        (cond
+          [(null? all-items) #t]
+          [(order-fn cur-item (car all-items))
+            (and
+              (if (order-fn (car all-items) cur-item)
+                ; check for anti-symmetry
+                (equal? cur-item (car all-items))
+                ; otherwise just pass #t
+                #t)
+               ; otherwise check for transitivity
+                (letrec ([crawler-second (lambda (rest-items)
+                  (cond
+                    [(null? rest-items) #t]
+                    [(order-fn (car all-items) (car rest-items))
+                      (if (not (order-fn cur-item (car rest-items)))
+                        #f
+                        (crawler-second (cdr rest-items)))]
+                    [else (crawler-second (cdr rest-items))]))])
+              (and (crawler-second input-set) (crawler-first (cdr all-items)))))]
+          [else (crawler-first (cdr all-items))])))]
+        (crawler-first (cdr input-set)))
+        (partial-order? (cdr input-set) order-fn)))))
+
+(define-syntax type-alphabet-term
+  (lambda (x) (syntax-case x (sort variable constant app func pi : ->)
+    [(_ name (sort sort-value))
+      #'(pseudoterm-interface (pseudoterm-kind sort) sort-value name)]
+    [(_ name (variable variable-value))
+      #'(pseudoterm-interface (pseudoterm-kind variable) variable-value name)]
+    [(_ name (constant constant-value))
+      #'(pseudoterm-interface (pseudoterm-kind constant) constant-value name)]
+    [(_ name (app left right))
+      #'(pseudoterm-interface (pseudoterm-kind app) (cons left right) name)]
+    [(_ name (func variable-term : variable-type-term -> body))
+      #'(pseudoterm-interface (pseudoterm-kind func)
+        (cons (cons 'λ (cons variable-term variable-type-term)) body) name)]
+    [(_ name (pi variable-term : variable-type-term -> body))
+      #'(pseudoterm-interface (pseudoterm-kind pi)
+        (cons (cons 'π (cons variable-term variable-type-term)) body) name)]
+    )
+  )
+)

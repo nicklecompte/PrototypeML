@@ -329,25 +329,55 @@
 )
 
 ; let's make our lives easier and practice macros
+; TODO: this needs cleanup/refactor/smartification/etc. I am still getting used to define-syntax semantics.
 (define-syntax annotated-match-one
-  (syntax-rules (->)
+  (lambda (x)
+  (syntax-case x (->)
+    ; the case annotated-match input -> 'Keyword arg -> expr
     [(_ pairterm (term-label term-value -> e1))
-      (if (equal? term-label (car pairterm))
+      #'(if (equal? term-label (car pairterm))
         (begin
           (set! term-value (cdr pairterm))
           e1
         )
         #f)]
+    ; the case annotated-match input -> 'Keyword arg1 arg2 -> expr
     [(_ pairterm (term-label term-fst term-snd -> e1))
-      (if (equal? term-label (car pairterm))
+      #'(if (equal? term-label (car pairterm))
         (begin
           (set! term-fst (car (cdr pairterm)))
           (set! term-snd (cdr (cdr pairterm)))
           e1
         )
         #f)]
+    ;the case annotated-match (input1 input2) -> (('Keyword1 arg1 [arg2]) ('Keyword2 arg1 [arg2])) -> expr
+    [(_ (pair1 pair2) (((term-label1 term1) (term-label2 term2)) -> e1))
+      #'(if (and (equal? term-label1 (car pair1)) (equal? term-label2 (car pair2)))
+        (begin
+          (set! term1 (cdr pair1))
+          (set! term2 (cdr pair2))
+          e1
+        )
+        #f)]
+    ; the case annotated-match (input1 input2) -> (('Keyword1 arg1 [arg2]) Any) -> expr
+    [(_ (pair1 pair2) (((term-label1 term1) f) -> e1)) (and (identifier? #'f) (free-identifier=? #'f #'Any))
+      #'(if (equal? term-label1 (car pair1))
+        (begin
+          (set! term1 (cdr pair1))
+          e1
+        )
+        #f)]
+    ; the case annotated-match (input1 input2) -> (Any ('Keyword1 arg1 [arg2])) -> expr
+    [(_ (pair1 pair2) ((f (term-label1 term1)) -> e1)) (and (identifier? #'f) (free-identifier=? #'f #'Any))
+      #'(if (equal? term-label1 (car pair2))
+        (begin
+          (set! term1 (cdr pair2))
+          e1
+        )
+        #f)]
+
   )
-)
+))
 
 (define (test-annotated-match-one term)
     (annotated-match-one term
@@ -360,20 +390,76 @@
         (display (string-append "The cat's name is " name " and she is " (number->string age) " years old."))))
 )
 
-(define-syntax annotated-match
-  (syntax-rules (->)
-    [(_ pairterm (l1 v1 -> e1)) (annotated-match-one pairterm (l1 v1 -> e1))]
-    [(_ pairterm (l1 v1 -> e1) (l2 v2 -> e2) ...)
-      (let ([v (annotated-match-one pairterm (l1 v1 -> e1))])
-        (if v v (annotated-match pairterm (l2 v2 -> e2) ...)))
-      ]
+(define (test-annotated-match-one-pair term1 term2)
+  (annotated-match-one (term1 term2)
+    ((('Cat cat) ('Dog dog)) ->
+      (display (string-append "The cat's name is " cat " and the dog is " dog " years old.")))
   )
 )
+
+
+(define (test-annotated-match-one-any term1 term2)
+  (annotated-match-one (term1 term2)
+    ((('Food food) Any) ->
+      (display (string-append "I ate some " food "which was " (symbol->string (car term2))))
+    )
+  )
+)
+
+(define-syntax annotated-match
+  (lambda (x)
+  (syntax-case x (->)
+    [(_ pairterm (l1 v1 -> e1))
+      #'(annotated-match-one pairterm (l1 v1 -> e1))]
+    [(_ pairterm (l1 v1 v2 -> e1))
+      #'(annotated-match-one pairterm (l1 v1 v2 -> e1))]
+    [(_ pairterm (l1 v1 -> e1) (f -> g)) (and (identifier? #'f) (free-identifier=? #'f #'otherwise))
+      #'(let ([v (annotated-match-one pairterm (l1 v1 -> e1))])
+        (if v v g))]
+    [(_ pairterm (l1 v1 v2 -> e1) (f -> g)) (and (identifier? #'f) (free-identifier=? #'f #'otherwise))
+      #'(let ([v (annotated-match-one pairterm (l1 v1 v2 -> e1))])
+        (if v v g))]
+    [(_ (pair1 pair2) (t1 -> e1))
+      #'(annotated-match-one (pair1 pair2) (t1 -> e1))]
+    [(_ (pair1 pair2) (t1 -> e1) (f -> g)) (and (identifier? #'f) (free-identifier=? #'f #'otherwise))
+      #'(let ([v (annotated-match-one (pair1 pair2) (t1 -> e1))])
+        (if v v g))]
+    [(_ pairterm t1 t2 ...)
+      #'(let ([v (annotated-match-one pairterm t1)])
+        (if v v (annotated-match pairterm t2 ...)))
+      ]
+    [(_ pairterm t1 t2 ... (f -> g)) (and (identifier? #'f) (free-identifier=? #'f #'otherwise))
+      #'(let ([v (annotated-match-one pairterm t1)])
+        (if v v (annotated-match pairterm t2 ... (f -> g))))
+      ]
+    [(_ (p1 p2) t1 t2 ...)
+      #'(let ([v (annotated-match-one (p1 p2) t1)])
+        (if v v (annotated-match (p1 p2) t2 ...)))
+      ]
+    [(_ (p1 p2) t1 t2 ... (f -> g)) (and (identifier? #'f) (free-identifier=? #'f #'otherwise))
+      #'(let ([v (annotated-match-one (p1 p2) t1)])
+        (if v v (annotated-match (p1 p2) t2 ... (f -> g))))
+      ]
+    ;[(_ pairterm otherwise -> error-expr) error-expr]
+  )
+))
 
 (define (test-annotated-match term)
   (annotated-match term
     ('Cat name -> (display (string-append name " meowed loudly.")))
-    ('Food food -> (display (string-append "I love to eat " food))))
+    ('Food food -> (display (string-append "I love to eat " food)))
+    (otherwise -> (display "Invalid match!"))
+  )
+)
+
+(define (test-annotated-match-mult term1 term2)
+  (annotated-match (term1 term2)
+    ((('Cat name) ('Dog dog-name)) -> (display (string-append (string-append name " meowed loudly and woke up ") dog-name)))
+    ((('Food food) Any) -> (display
+                            (string-append "I ate some " food
+                                " which was a " (symbol->string (car term2)) ", specifically " (cdr term2))))
+    (otherwise -> (display "Invalid match!"))
+  )
 )
 
 ; Term_{\uparrow} -> Env -> Value
@@ -498,7 +584,7 @@
                                             ; First we make sure the type is well-formed
                                             (check-type-well-formed context type-object 'HasKind)
                                             ; Then we make sure that the checkable term itself has the type we said it did
-                                            (check-type-checkable-term checkable-term context type-object num-encountered-bindings)
+                                            (check-type-checkable-term checkable-term type-object context num-encountered-bindings)
                                           ))
       ('Free name ->
         (let ([lookup-result (assoc name ctx)])
@@ -509,14 +595,20 @@
             (cons 'OK (cdr lookup-result))
             (cons 'Error "unknown identifier")
           )))
-      ('Bound i -> (list-ref env i))
+      ('Bound i -> (cons 'Error "should not be type-checking a bound inferable term"))
       ('Apply term1 term2 ->
         ; We don't use  bind-result here because we want to inspect term1's type and not  just pass it along.
-        (let  ([term1-result (check-type-checkable-term term1 context type-object num-encountered-bindings)])
+        (let  ([term1-result (check-type-inferable-term term1 context num-encountered-bindings)])
           (if (equal? (car term1-result) 'OK)
+              ; Then the type is well-formed but it needs to be a function
               (let ([term1-type  (cdr term1-result)])
                 (if (equal? 'Fun (car term1-type))
-                  (check-type-checkable-term  (cddr term1-type))
+                   ; term1-type = ('Fun t t')
+                   ; we know t is well-formed due to term1-result being 'OK
+                   ; we need to check that term2 has type  t' using check-type-checkable-term
+                   ; We return that result directly, whether it's OK or Error.
+                  (check-type-checkable-term term2 (cddr term1-type) context num-encountered-bindings)
+                  ; Something went wrong with the syntax in the input program
                   (cons 'Error "did not get a function type when looking up an Apply term")
                 )
               )
@@ -529,6 +621,91 @@
 
 
 ; CheckableTerm -> Context -> TypeObject -> Int -> Result()
-(define (check-type-checkable-term term context provided-type num-encountered-bindings)
+(define (check-type-checkable-term term provided-type context num-encountered-bindings)
+  (annotated-match (term provided-type)
+    ; if the checkable-term is just a wrapped inferable term,
+    ; run checl-type-inferable-term on it
+    ; and make sure it matches the provided type
+    ((('Inf e) (Any)) ->
+        ; TODO - define-syntax let-if-ok that wraps the bind-result
+        (let ([term1-result (check-type-inferable-term e context num-encountered-bindings)])
+          (if (equal? (car term1-result 'OK))
+            (let ([term1-type (cdr term1-result)])
+              (if (equal? term1-type provided-type)
+                (cons 'OK '())
+                (cons 'Error "type mismatch")))
+            term1-result)))
+    ; if the checkable term is a lambda expression,
+    ; remember that the variable term is implicit due to de Brujin indices
+    ; therefore we take the Free inferable term with Local name at num-encountered-bindings [popping off the stack so to speak]
+    ; and substitute it in for the checkable term in Lam e
+    ; we then check this term's type in check-type-checkable-term
+    ; but must expand the context accordingly to introduce the local variable we just bound
+    ((('Lam e) ('Fun tin tout)) ->
+      (check-type-checkable-term
+        (substitute-checkable-term (cons 'Free (cons 'Local num-encountered-bindings)) e 0)
+        tout
+        (cons
+            ; the context is extended with the local variable 'Local i, annotated with type tin
+          (cons (cons 'Local num-encountered-bindings) (cons 'HasType tin) )
+          context)
+        (add1 num-encountered-bindings)))
+    (otherwise -> (cons 'Error "type mismatch between the checkable term and provided type in check-type-checkable-term"))
+  ))
 
+; We can now implement substitution:
+
+; Substituting an inferable term into an inferable term and returning a new term
+; InfertableTerm -> InferableTerm -> Int -> Inferable-term
+(define (substitute-inferable-term substitution input-term num-bound-identifiers)
+  (annotated-match (input-term)
+    ('Ann e t -> (cons 'Ann (cons (substitute-checkable-term substitution input-term e) t)))
+    ('Bound i -> (if (equal? i (num-bound-identifiers) input-term (cons 'Bound j))))
+    ('Free y -> input-term)
+    ('Apply in out ->
+      (cons 'Apply (cons
+                     (substitute-inferable-term substitution in num-bound-identifiers)
+                     (substitute-inferable-term substitution out num-bound-identifiers))))
+  )
 )
+
+(define (substitute-checkable-term substitution input-term num-bound-identifiers)
+  (annotated-match (input-term)
+    ('Inf e -> (cons 'Inf (substitute-inferable-term e input-term num-bound-identifiers)))
+    ('Lam e -> (cons 'Lam (substitute-checkable-term e input-term (add1 num-bound-identifiers))))
+  )
+)
+
+; This almost completes the implementation of a simply-typed lambda calculus.
+; We need a way to "quote" values - that is, printing ValueObjects.
+; The function quote always takes anb integer argument that counts the number of binders
+; we have traversed. If the value is a lambda abstraction, we generate a fresh variable Quote i and apply the (Scheme)
+; function f to this variable. The value resulting from the function application is thenb quoted at level i + 1.
+; We use the constructor Quote that takes an argument of type Int to ensure that the newly created names don't clash with
+; other names.
+; If the value is a neutral term (hence an application of a free variable to other values), the function neutralQuote is
+; used to quote the aguments. The boundFreee function checks if the variable occurring at the head of application is a Quote
+; and thus a bound variables, or a free name.
+
+; ValueObject -> Int -> CheckableTerm
+(define (quote-simple value num-encountered-bindings)
+  (annotated-match value
+    ('VLam f -> )
+  )
+)
+
+(define (eval-expr expr)
+    (symbol->string expr)
+)
+
+; Defining a simple REPL and interpreter
+(define (rep-loop)
+   (display "repl>")              ; print a prompt
+   (let ((expr (read)))           ; read an expression, save it in expr
+      (cond ((eq? expr 'quit)     ; user asked to stop?
+             (display "exiting read-eval-print loop")
+             (newline))
+            (#t                   ; otherwise,
+             (write (eval-expr expr))  ;  evaluate and print
+             (newline)
+             (rep-loop)))))       ;  and loop to do it again
